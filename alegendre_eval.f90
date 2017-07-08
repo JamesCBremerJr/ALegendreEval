@@ -476,13 +476,18 @@ implicit double precision (a-h,o-z)
 !  alpha at a is necessarily in the interval( -pi/2,0).
 !
 
+if (ifloaded .eq. 0) then
+print *,"alegendre_root:  alegendre_eval_init must be called before this subroutine"
+stop
+endif
+
 ifsmalldmu = 0
 if (dmu .lt. 1) ifsmalldmu = 1
 
 call alegendre_evalabc(ifsmalldmu,dnu,dmu,a,b,c)
 call alegendre_eval0(dnu,dmu,a,alpha1,alphader,vallogp,vallogq,valp,valq, &
   imethod,ifoscillatory)
-alpha2  = pi*(dnu-dmu)-alpha1
+alpha2  = 2*pi + pi*(dnu-dmu)-alpha1
 
 !
 !  Roots of q occur  when \alpha = pi k while those of p occur when 
@@ -527,16 +532,17 @@ print *,"t   = ",dmu
 stop
 endif
 
-x   = pi/2 + pi*(j-1)
+x      = 2*pi + pi/2 + pi*(j-1)
+xright = pi/2*(dnu-dmu) + 2*pi
 
 !
 !  Check to see if the root in in the interval (0,\pi/2) or (pi/2,pi)
 !
 
-if (x .le. pi/2*(dnu-dmu)) then
+if (x .le. xright) then
 call alegendre_inverse(dnu,dmu,x,t)
 else
-x      = pi*(dnu-dmu) - x
+x      = 2*xright - x
 call alegendre_inverse(dnu,dmu,x,t)
 t      = pi - t
 endif
@@ -576,16 +582,17 @@ print *,"t   = ",dmu
 stop
 endif
 
-x   = pi*(j-1)
+x      = 2*pi + pi*(j-1)
+xright = pi*(dnu-dmu)/2+2*pi
 
 !
 !  Check to see if the root in in the interval (0,\pi/2) or (pi/2,pi)
 !
 
-if (x .le. pi/2*(dnu-dmu)) then
+if (x .le. xright) then
 call alegendre_inverse(dnu,dmu,x,t)
 else
-x      = pi*(dnu-dmu) - x
+x      = 2*xright-x
 call alegendre_inverse(dnu,dmu,x,t)
 t      = pi - t
 endif
@@ -600,11 +607,22 @@ implicit double precision (a-h,o-z)
 !
 !  Return the value of the inverse phase function at the point x.
 !
+
+if (dnu .le. 10000) then
 if (dmu .lt. 1) then
 call alegendre_expeval_inverse(expdata3,dnu,dmu,x,t)
 else
 call alegendre_expeval_inverse(expdata4,dnu,dmu,x,t)
 endif
+return
+endif
+
+if (dmu .lt. 1) then
+call alegendre_expeval_inverse(expdata5,dnu,dmu,x,t)
+else
+call alegendre_expeval_inverse(expdata6,dnu,dmu,x,t)
+endif
+return
 
 end subroutine
 
@@ -706,14 +724,12 @@ call alegendre_read_expansion(iw,expdata1)
 call alegendre_read_expansion(iw,expdata2)
 call alegendre_read_expansion(iw,expdata3)
 call alegendre_read_expansion(iw,expdata4)
-! call alegendre_read_expansion(iw,expdata5)
-! call alegendre_read_expansion(iw,expdata6)
 close (iw)
 
 
 iw = 201
 open (iw, FILE = 'alegendre_data.bin2', form = 'UNFORMATTED', status = 'OLD', &
-  access = 'stream', err = 1000)
+  access = 'stream', err = 2000)
 call alegendre_read_expansion(iw,expdata5)
 call alegendre_read_expansion(iw,expdata6)
 close (iw)
@@ -727,7 +743,12 @@ return
 
 1000 continue
 
-print *,"alegendre_eval_init: unable to open and/or read alegendre_data.bin"
+print *,"alegendre_eval_init: unable to open and/or read alegendre_data.bin1"
+stop
+
+2000 continue
+
+print *,"alegendre_eval_init: unable to open and/or read alegendre_data.bin2"
 stop
 
 end subroutine
@@ -1112,10 +1133,10 @@ x**2)*valsratj(2)+x*(0.8d1*valsratj(3)-  &
 term1  = sin(t/2)**2 * term1
 
 
-! term2 = (9*valsratj(2))/(0.8d1*x**2)-(29*valsratj(3))/(0.6d1*x)+  &
-! (31*valsratj(4))/0.12d2-(11*x*valsratj(5))/0.3d2+  &
-! (x**2*valsratj(6))/0.72d2
-! term2  = sin(t/2)**4 * term2
+term2 = (9*valsratj(2))/(0.8d1*x**2)-(29*valsratj(3))/(0.6d1*x)+  &
+(31*valsratj(4))/0.12d2-(11*x*valsratj(5))/0.3d2+  &
+(x**2*valsratj(6))/0.72d2
+term2  = sin(t/2)**4 * term2
 
 
 ! term3 = (75*valsratj(3))/(0.16d2*x**3)-(751*valsratj(4))/(0.24d2*x**2)+  &
@@ -1145,7 +1166,7 @@ term1  = sin(t/2)**2 * term1
 ! (29*x**4*valsratj(14))/0.15552d6+(x**5*valsratj(15))/0.93312d6
 ! term5  = sin(t/2)**10 * term5
 
-dsum     = term0 + term1 + term2 + term3 + term4 + term5
+dsum     = term0 + term1 + term2
 vallogp = -dmu * log(cos(t/2)* ( dnu+0.5d0) ) + valslogj(0) + log(dsum)
 
 
@@ -1210,10 +1231,10 @@ term0 = valsraty(0)
 term1 = valsraty(1)/(0.2d1*x)-0.1d1*valsraty(2)+(x*valsraty(3))/0.6d1
 term1 = term1*sin(t/2)**2
 
-! term2 = (9*valsraty(2))/(0.8d1*x**2)-(29*valsraty(3))/(0.6d1*x)+  &
-! (31*valsraty(4))/0.12d2-(11*x*valsraty(5))/0.3d2+  &
-! (x**2*valsraty(6))/0.72d2
-! term2 = term2*sin(t/2)**4
+term2 = (9*valsraty(2))/(0.8d1*x**2)-(29*valsraty(3))/(0.6d1*x)+  &
+(31*valsraty(4))/0.12d2-(11*x*valsraty(5))/0.3d2+  &
+(x**2*valsraty(6))/0.72d2
+term2 = term2*sin(t/2)**4
 
 ! term3 = (75*valsraty(3))/(0.16d2*x**3)-(751*valsraty(4))/(0.24d2*x**2)+  &
 ! (1381*valsraty(5))/(0.48d2*x)-(1513*valsraty(6))/0.18d3+  &
@@ -1240,7 +1261,7 @@ term1 = term1*sin(t/2)**2
 ! term5 = term5 * sin(t/2)**10
 
 
-dsum     = term0 + term1 + term2 + term3 + term4 + term5
+dsum     = term0 + term1 + term2 
 dsignq = -1.0d0
 if (dsum .lt. 0) then
 dsignq = -dsignq
@@ -1954,7 +1975,7 @@ end function
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
-subroutine alegendre_nearright(dnu,dmu,t,aval,apval)
+subroutine alegendre_nearright(dnu,dmu,t,aval,apval,valp,valq)
 implicit double precision (a-h,o-z)
 
 !
@@ -2038,6 +2059,10 @@ apval   = apval + as(2*i+1) * dd
 dd     = dd*delta*delta*1.0d0/(2*i+2.0d0)*1.0d0/(2*i+1.0d0)
 end do
 
+
+dd   =  sqrt((1+2*dnu)/(pi*apval))
+valp =  cos(aval ) * dd
+valq = -sin(aval ) * dd
 
 end subroutine
 
@@ -2271,8 +2296,8 @@ aval = aval * dnu
 endif
 
 
-ainv0  = aval
-binv0  = pi/2*(dnu-dmu)
+ainv0  = aval 
+binv0  = pi/2*(dnu-dmu) + 2*pi
 
 u = (t-ainv0)/(binv0-ainv0)
 call alegendre_findint(expdata%nintsinv,expdata%abinv,u,intinv,a0,b0)
