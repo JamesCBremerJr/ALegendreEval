@@ -637,12 +637,12 @@ return
 endif
 
 
-! if (dmu .lt. 1) then
-! call alegendre_expeval_inverse(expdata7,dnu,dmu,x,t)
-! else
-! call alegendre_expeval_inverse(expdata8,dnu,dmu,x,t)
-! endif
-! return
+if (dmu .lt. 1) then
+call alegendre_expeval_inverse(expdata7,dnu,dmu,x,t)
+else
+call alegendre_expeval_inverse(expdata8,dnu,dmu,x,t)
+endif
+return
 
 end subroutine
 
@@ -746,6 +746,7 @@ call alegendre_read_expansion(iw,expdata3)
 call alegendre_read_expansion(iw,expdata4)
 close (iw)
 
+dsize    = expdata1%dmemory + expdata2%dmemory + expdata3%dmemory + expdata4%dmemory 
 
 iw = 201
 open (iw, FILE = 'alegendre_data.bin2', form = 'UNFORMATTED', status = 'OLD', &
@@ -753,6 +754,8 @@ open (iw, FILE = 'alegendre_data.bin2', form = 'UNFORMATTED', status = 'OLD', &
 call alegendre_read_expansion(iw,expdata5)
 call alegendre_read_expansion(iw,expdata6)
 close (iw)
+
+dsize    = dsize + expdata5%dmemory + expdata6%dmemory 
 
 !
 !  Uncomment this to allow for degrees between 1,000,000 and 100,000,000
@@ -764,11 +767,9 @@ close (iw)
 ! call alegendre_read_expansion(iw,expdata7)
 ! call alegendre_read_expansion(iw,expdata8)
 ! close (iw)
-!  maxdegree = 1000000
+! maxdegree = 1000000
+! dsize    = dsize + expdata7%dmemory + expdata8%dmemory 
 
-dsize    = expdata1%dmemory + expdata2%dmemory + expdata3%dmemory + expdata4%dmemory 
-dsize    = dsize + expdata5%dmemory + expdata6%dmemory 
-!dsize    = dsize + expdata7%dmemory + expdata8%dmemory 
 
 ifloaded  = 1
 
