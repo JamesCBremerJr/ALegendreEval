@@ -172,13 +172,16 @@ end type   alegendre_expansion_data
 
 
 
-type(alegendre_expansion_data), private :: expdata1,expdata2,expdata3,expdata4,expdata5,expdata6
-integer, private                        :: ifloaded
+type(alegendre_expansion_data), private :: expdata1,expdata2,expdata3,expdata4
+type(alegendre_expansion_data), private :: expdata5,expdata6
+type(alegendre_expansion_data), private :: expdata7,expdata8
+integer, private                        :: ifloaded,maxdegree
 double precision, private               :: pi
 
 
 data pi            / 3.14159265358979323846264338327950288d0  /
-data ifloaded      / 0      /
+data ifloaded      / 0       /
+data maxdegree     / 1000000 /
 
 contains
 
@@ -227,6 +230,7 @@ implicit double precision (a-h,o-z)
 !
 
 
+
 alpha     = 0
 alphader  = 0
 vallogp   = 0
@@ -247,7 +251,7 @@ endif
 !  Perform range checking.
 !
 
-if (dnu .lt. 0 .OR. dnu .gt. 1000000     .OR. &
+if (dnu .lt. 0 .OR. dnu .gt. maxdegree   .OR. &
     dmu .lt. 0 .OR. dmu .gt. dnu         .OR. &
     t .le. 0                             .OR. &
     t .gt. pi) then
@@ -264,10 +268,9 @@ endif
 
 if (t .gt. pi/2) then
 
-! call  alegendre_eval0(dnu,dmu,pi-t,alpha0,alphader0,vallogp0,vallogq0,valp0,valq0,imethod, &
-!   ifoscillatory)
+call  alegendre_eval0(dnu,dmu,pi-t,alpha0,alphader0,vallogp0,vallogq0,valp0,valq0,ifoscillatory)
 
-alpha00 = pi/2*(dnu-dmu)
+
 dd1     = cos(pi*(dnu-dmu))
 dd2     = sin(pi*(dnu-dmu))
 
@@ -279,15 +282,12 @@ vallogp = vallogp0 + log(   dd1   - exp(logvalq0 - vallogp0) * dd2)
 vallogq = vallogq0 + log( - dd1   - exp(vallogp0 - vallogq0) * dd2)
 else
 
-call  alegendre_eval0(dnu,dmu,pi/2,alpha00,alphader00,vallogp00,vallogq00,valp00,valq00,imethod, &
-  ifoscillatory)
-
 !
 ! Adjust alpha; alpha' needs no adjustment
 !
-
-alpha    = 2*alpha00 - alpha0
+alpha    = pi*(dnu-dmu) - alpha0 
 alphader = alphader0
+
 endif
 return
 endif
@@ -296,26 +296,21 @@ endif
 !  Otherwise, simply call eval0
 !
 
-call  alegendre_eval0(dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq,imethod,ifoscillatory)
+call  alegendre_eval0(dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq,ifoscillatory)
 
 
 end subroutine
 
 
 
-subroutine alegendre_eval0(dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq,imethod,ifoscillatory)
+subroutine alegendre_eval0(dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq, &
+  ifoscillatory)
 implicit double precision (a-h,o-z)
 
 !
 !  Evaluate (1) and (2) as well as the related functions when 0 < t <= pi/2.
 !
 
-! alpha     = 0
-! alphader  = 0
-! vallogp   = 0
-! vallogq   = 0
-! valp      = 0
-! valq      = 0
 
 !
 !  Determine whether or not we are in the oscillatory regime and fetch
@@ -335,16 +330,15 @@ ifsmalldmu = 0
 if (dmu .lt. 1) ifsmalldmu = 1
 call alegendre_evalabc(ifsmalldmu,dnu,dmu,a,b,c)
 
+
 !
 !  For small dnu, always use series expansions
 !
 
 if (dnu .lt. 2) then
-imethod = -2
 call alegendre_taylor(dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq,ifoscillatory)
 return
 endif
-
 
 
 !
@@ -358,20 +352,16 @@ if (dnu .lt. 10) then
 if (ifsmalldmu .eq. 1) then
 
 if (t .lt. a) then
-imethod=-2
 call alegendre_taylor(dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq,ifoscillatory)
 else
-imethod = 1
 call alegendre_expeval(expdata1,dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq)
 endif
 
 else
 
 if (t .lt. a) then
-imethod=-2
 call alegendre_taylor(dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq,ifoscillatory)
 else
-imethod=2
 call alegendre_expeval(expdata2,dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq)
 endif
 
@@ -390,20 +380,16 @@ if (dnu .le. 10000) then
 if (ifsmalldmu .eq. 1) then
 
 if (t .lt. a) then
-imethod=-2
 call alegendre_taylor(dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq,ifoscillatory)
 else
-imethod = 3
 call alegendre_expeval(expdata3,dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq)
 endif
 
 else
 
 if (t .lt. c) then
-imethod=-2
 call alegendre_taylor(dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq,ifoscillatory)
 else
-imethod=4
 call alegendre_expeval(expdata4,dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq)
 endif
 endif
@@ -416,30 +402,55 @@ endif
 !  Now 10,000 < dnu <= 1,000,000
 !
 
+if (dnu .le. 1000000) then
+
 
 if (ifsmalldmu .eq. 1) then
 
 if (t .lt. a) then
-imethod=-1
 call alegendre_macdonald(dnu,dmu,t,vallogp,vallogq,valp,valq)
 else
-imethod = 5
 call alegendre_expeval(expdata5,dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq)
 endif
 
 else
 
 if (t .lt. c) then
-imethod=-1
+!call alegendre_taylor(dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq,ifoscillatory)
 call alegendre_macdonald(dnu,dmu,t,vallogp,vallogq,valp,valq)
 else
-imethod=6
 call alegendre_expeval(expdata6,dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq)
 endif
 endif
 
 return
+endif
 
+
+
+!
+!  Now 1,000,000 < dnu <= 100,000,000
+!
+
+
+if (ifsmalldmu .eq. 1) then
+
+if (t .lt. a) then
+call alegendre_macdonald(dnu,dmu,t,vallogp,vallogq,valp,valq)
+else
+call alegendre_expeval(expdata7,dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq)
+endif
+
+else
+
+if (t .lt. c) then
+call alegendre_macdonald(dnu,dmu,t,vallogp,vallogq,valp,valq)
+else
+call alegendre_expeval(expdata8,dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq)
+endif
+endif
+
+return
 
 
 
@@ -485,8 +496,7 @@ ifsmalldmu = 0
 if (dmu .lt. 1) ifsmalldmu = 1
 
 call alegendre_evalabc(ifsmalldmu,dnu,dmu,a,b,c)
-call alegendre_eval0(dnu,dmu,a,alpha1,alphader,vallogp,vallogq,valp,valq, &
-  imethod,ifoscillatory)
+call alegendre_eval0(dnu,dmu,a,alpha1,alphader,vallogp,vallogq,valp,valq,ifoscillatory)
 alpha2  = 2*pi + pi*(dnu-dmu)-alpha1
 
 !
@@ -524,7 +534,7 @@ print *,"alegendre_root:  alegendre_eval_init must be called before this subrout
 stop
 endif
 
-if (dnu .lt. 10 .OR. dnu .gt. 1000000) then
+if (dnu .lt. 10 .OR. dnu .gt. maxdegree) then
 print *,"alegendre_proot: parameters out of bounds"
 print *,"dnu = ",dnu
 print *,"dmu = ",dmu
@@ -574,7 +584,7 @@ print *,"alegendre_root:  alegendre_eval_init must be called before this subrout
 stop
 endif
 
-if (dnu .lt. 10 .OR. dnu .gt. 1000000) then
+if (dnu .lt. 10 .OR. dnu .gt. maxdegree) then
 print *,"alegendre_qroot: parameters out of bounds"
 print *,"dnu = ",dnu
 print *,"dmu = ",dmu
@@ -617,12 +627,22 @@ endif
 return
 endif
 
+if (dnu .le. 1000000) then
 if (dmu .lt. 1) then
 call alegendre_expeval_inverse(expdata5,dnu,dmu,x,t)
 else
 call alegendre_expeval_inverse(expdata6,dnu,dmu,x,t)
 endif
 return
+endif
+
+
+! if (dmu .lt. 1) then
+! call alegendre_expeval_inverse(expdata7,dnu,dmu,x,t)
+! else
+! call alegendre_expeval_inverse(expdata8,dnu,dmu,x,t)
+! endif
+! return
 
 end subroutine
 
@@ -734,10 +754,23 @@ call alegendre_read_expansion(iw,expdata5)
 call alegendre_read_expansion(iw,expdata6)
 close (iw)
 
+!
+!  Uncomment this to allow for degrees between 1,000,000 and 100,000,000
+!
+
+! iw = 202
+! open (iw, FILE = 'alegendre_data.bin3', form = 'UNFORMATTED', status = 'OLD', &
+!   access = 'stream', err = 2000)
+! call alegendre_read_expansion(iw,expdata7)
+! call alegendre_read_expansion(iw,expdata8)
+! close (iw)
+!  maxdegree = 1000000
+
 dsize    = expdata1%dmemory + expdata2%dmemory + expdata3%dmemory + expdata4%dmemory 
 dsize    = dsize + expdata5%dmemory + expdata6%dmemory 
+!dsize    = dsize + expdata7%dmemory + expdata8%dmemory 
 
-ifloaded = 1
+ifloaded  = 1
 
 return
 
@@ -988,6 +1021,7 @@ data xs  / -0.100000000000000000000000000000000000D+01,  &
 
 call alegendre_macdonald_logp0(dnu,dmu,t,vallogp)
 
+
 !
 !  Now evaluate Q_dnu^{-dmu} using the connection formula and interpolation
 !
@@ -995,7 +1029,6 @@ call alegendre_macdonald_logp0(dnu,dmu,t,vallogp)
 diff    = 1-2*(dmu - nint(dmu))
 dmu0    = nint(2*dmu)/2.0d0
 diff    = abs(dmu-dmu0)
-
 
 
 if (diff .gt. 0.005d0) then
@@ -1101,22 +1134,14 @@ x  = (2*dnu+1)   * sin(t/2)
 !
 
 
-do i=0,3
+do i=0,6
 call alegendre_log_besselj(dmu+i,x,valslogj(i),dsignsj(i),valsj(i))
 end do
 
 
-do i=0,3
+do i=0,6
 valsratj(i) = dsignsj(i)*exp(valslogj(i)-valslogj(0))
 end do
-
-term0 = 0
-term1 = 0
-term2 = 0
-term3 = 0
-term4 = 0
-term5 = 0
-
 
 
 !
@@ -1214,17 +1239,10 @@ x  = (2*dnu+1)   * sin(t/2)
 !  Evaluate the ratios Y_{-\mu+k}(x) / Y_{-\mu}(x) and compute the logarithm of Q
 !
 
-do i=0,3
+do i=0,6
 call alegendre_log_bessely(-dmu+i,x,valslogy(i),dsignsy(i),valsy(i))
 valsraty(i) =  dsignsy(i)*exp(valslogy(i)-valslogy(0))
 end do
-
-term0 = 0
-term1 = 0
-term2 = 0
-term3 = 0
-term4 = 0
-term5 = 0
 
 term0 = valsraty(0)
 
@@ -1464,7 +1482,7 @@ call alegendre_ptaylor(dnu,dmu,t,valp)
 call alegendre_qtaylor(dnu,dmu,t,valq)
 
 alphader = (2*dnu+1.0d0)/pi*1/(valp**2 + valq**2)
-alpha    = atan2(-valq,valp)
+alpha    = atan2(-valq,valp) + 2*pi
 vallogp  = 0
 vallogq  = 0
 
@@ -2436,9 +2454,9 @@ yy      = (y-(d+c)/2)*2/(d-c)
 zz      = (z-(f+e)/2)*2/(f-e)
 
 
-call chebs(xx,nx,polsx)
-call chebs(yy,ny,polsy)
-call chebs(zz,nz,polsz)
+call alegendre_chebs(xx,nx,polsx)
+call alegendre_chebs(yy,ny,polsy)
+call alegendre_chebs(zz,nz,polsz)
 
 iptr0     = iptr+3
 val       = 0
@@ -2484,9 +2502,9 @@ yy      = (y-(d+c)/2)*2/(d-c)
 zz      = (z-(f+e)/2)*2/(f-e)
 
 
-call chebs(xx,nx,polsx)
-call chebs(yy,ny,polsy)
-call chebs(zz,nz,polsz)
+call alegendre_chebs(xx,nx,polsx)
+call alegendre_chebs(yy,ny,polsy)
+call alegendre_chebs(zz,nz,polsz)
 
 iptr      = iptr1+3
 val1      = 0
@@ -2535,8 +2553,8 @@ ny     = coefs(iptr0+1)
 xx = (x-(b+a)/2)*2/(b-a)
 yy = (y-(d+c)/2)*2/(d-c)
 
-call chebs(xx,nx,polsx)
-call chebs(yy,ny,polsy)
+call alegendre_chebs(xx,nx,polsx)
+call alegendre_chebs(yy,ny,polsy)
 
 val    = 0
 iptr   = iptr0+2
@@ -2582,7 +2600,7 @@ end subroutine
 
 
 
-subroutine chebs(x,n,pols)
+subroutine alegendre_chebs(x,n,pols)
 implicit double precision (a-h,o-z)
 
 integer          :: n 
