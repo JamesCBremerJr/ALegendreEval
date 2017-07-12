@@ -47,10 +47,10 @@
 !  The algorithm used for the evaluation of (1) and (2) is described in the preprint
 !
 !    James Bremer, "An algorithm for the numerical evaluation of the associated Legendre 
-!    functions in time independent of degree and order."  arXiv:?????.?????
+!    functions in time independent of degree and order."  arXiv:1705.07820
 !
 !  and the algorithm used for the calculation of roots will be described in an upcoming
-!  preprint.
+!  article.
 !
 !  The principal subroutine for the evaluation of (1) and (2) is called  alegendre_eval.
 !  We call the subset of R^3
@@ -310,7 +310,6 @@ implicit double precision (a-h,o-z)
 !
 !  Evaluate (1) and (2) as well as the related functions when 0 < t <= pi/2.
 !
-
 
 !
 !  Determine whether or not we are in the oscillatory regime and fetch
@@ -763,13 +762,13 @@ dsize    = dsize + expdata5%dmemory + expdata6%dmemory
 
 ! iw = 202
 ! open (iw, FILE = 'alegendre_data.bin3', form = 'UNFORMATTED', status = 'OLD', &
-!   access = 'stream', err = 2000)
+!   access = 'stream', err = 3000)
 ! call alegendre_read_expansion(iw,expdata7)
 ! call alegendre_read_expansion(iw,expdata8)
 ! close (iw)
 ! maxdegree = 1000000
 ! dsize    = dsize + expdata7%dmemory + expdata8%dmemory 
-
+!
 
 ifloaded  = 1
 
@@ -783,6 +782,11 @@ stop
 2000 continue
 
 print *,"alegendre_eval_init: unable to open and/or read alegendre_data.bin2"
+stop
+
+3000 continue
+
+print *,"alegendre_eval_init: unable to open and/or read alegendre_data.bin3"
 stop
 
 end subroutine
