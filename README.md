@@ -8,7 +8,7 @@ The algorithm is described in the preprint
 
     James Bremer, "An algorithm for the numerical evaluation of the  associated 
        Legendre functions that runs in time independent of degree and order."  
-       arXiv:1705.07820
+       arXiv:1707.03287
 
 It also contains code for rapidly calculating the roots of the associated Legendre
 functions on the interval (-1,1).  The evaluation of a single root is done in time 
