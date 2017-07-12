@@ -47,7 +47,7 @@
 !  The algorithm used for the evaluation of (1) and (2) is described in the preprint
 !
 !    James Bremer, "An algorithm for the numerical evaluation of the associated Legendre 
-!    functions in time independent of degree and order."  arXiv:1705.07820
+!    functions in time independent of degree and order."  arXiv:1707.03287
 !
 !  and the algorithm used for the calculation of roots will be described in an upcoming
 !  article.
