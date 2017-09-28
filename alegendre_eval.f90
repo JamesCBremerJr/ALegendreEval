@@ -29,7 +29,7 @@
 !   ---- (  ---------------------------- )^(1/2)  Q_dnu^{-dmu}(\cos(t)) \sqrt{\sin(t)}    (2)
 !    Pi  (        Gamma(dnu-dmu+1)       )
 !
-!  on the interval (0,\pi).  It runs in time independent of the degree dnu and order dmu
+!  on the interval (0,\pi/2).  It runs in time independent of the degree dnu and order dmu
 !  and can be applied when 
 !
 !     0 <= dnu <= 1,000,000 and 0 <= dmu <= dnu.                                          (3)
@@ -49,15 +49,16 @@
 !    James Bremer, "An algorithm for the numerical evaluation of the associated Legendre 
 !    functions in time independent of degree and order."  arXiv:1707.03287
 !
-!  and the algorithm used for the calculation of roots will be described in an upcoming
-!  article.
+!  and the algorithm used for the calculation of roots is described in the preprint
+!
+!    James Bremer, "O(1) computation of the roots of the associated Legendre 
+!    functions."  arXiv:???.?????
 !
 !  The principal subroutine for the evaluation of (1) and (2) is called  alegendre_eval.
 !  We call the subset of R^3
 !
 !    { (dnu,dmu,t) : dnu >= 0, 0 <= dmu <= 1/2 and 0 <t <= pi }  \cup
 !    { (dnu,dmu,t) : dnu >= 0, dmu > 1/2 and  tp <= t <= \pi/2 }  \cup                    (4)
-!    { (dnu,dmu,t) : dnu >0 dmu > 1/2 and pi/2 < t <= pi - tp  },
 !
 !  where tp the turning point tp  = arcsin( sqrt(dmu^2-1/4) / (dnu+1/2) ), the
 !  oscillatory region.  When (dnu,dmu,t) is in the oscillatory region, in addition 
@@ -68,7 +69,6 @@
 !  The nonoscillatory region is 
 !  
 !    { (dnu,dmu,t) : dnu >=0, dmu > 1/2 and 0 < t < tp }  \cup                            (5)
-!    { (dnu,dmu,t) : dnu >=0, dmu > 1/2 and pi - tp < t  <pi}
 !
 !  When (dnu,dmu,t) is in this set, alegendre_eval returns the values of the logarithms 
 !  of (1) and (2) in addition to the values of (1) and (2). 
@@ -96,6 +96,9 @@
 !    alegendre_qroot - return the j^th largest root of (2) on the interval (0,\pi)
 !
 !         ***This routine requires that dnu >= 10***
+!
+!    alegendre_jacobi - return the j^th largest node in an ceil(n/2)-point
+!      quadrature rule which integrates products of the functions
 !
 !    alegendre_tp - return the values of alpha, alpha' and alpha'' at the turning
 !       point of the associated Legendre differential equation
@@ -180,8 +183,8 @@ double precision, private               :: pi
 
 
 data pi            / 3.14159265358979323846264338327950288d0  /
-data ifloaded      / 0       /
-data maxdegree     / 1000000 /
+data ifloaded      / 0         /
+data maxdegree     / 100000000 /
 
 contains
 
@@ -199,7 +202,7 @@ implicit double precision (a-h,o-z)
 !
 !  Evaluate the *scaled*, *normalized* associated Legendre functions of the first 
 !  and second kinds (1) and (2) of degrees nu and orders -dmu at the point cos(t), 
-!  where  0 < t <= pi and (dnu,dmu) is in the set (3).
+!  where  0 < t <= pi/2 and (dnu,dmu) is in the set (3).
 !
 !  When (dnu,dmu,t) is in the oscillatory region (4), also return the values of a 
 !  nonoscillatory phase function alpha for the associated Legendre differential 
@@ -207,11 +210,6 @@ implicit double precision (a-h,o-z)
 !
 !  When (dnu,dmu,t) is in the nonoscillatory region (5), also return the values of
 !  the logarithms of the functions (1) and (2).
-!
-!  This routine is primarily a wrapper around alegendre_eval0, which evaluates
-!  (1) and (2) on the interval (0,\pi/2].  It performs  range checking on the
-!  parameters and uses the connection formulas to evaluate (1) and (2)
-!  in the event that t is in (\pi/2,\pi).
 !
 !  Input parameters:
 !    dnu - the degree of the associated Legendre functions to evaluate
@@ -228,8 +226,6 @@ implicit double precision (a-h,o-z)
 !    valp - the value of (1)
 !    valq - the value of (2)
 !
-
-
 
 alpha     = 0
 alphader  = 0
@@ -248,7 +244,7 @@ stop
 endif
 
 !
-!  Perform range checking.
+!  Perform range checking. 
 !
 
 if (dnu .lt. 0 .OR. dnu .gt. maxdegree   .OR. &
@@ -261,60 +257,6 @@ print *,"dmu = ",dmu
 print *,"t   = ",t
 stop
 endif
-
-!
-!  When t > pi/2, use the connection formula to evaluate P and Q
-!
-
-if (t .gt. pi/2) then
-
-call  alegendre_eval0(dnu,dmu,pi-t,alpha0,alphader0,vallogp0,vallogq0,valp0,valq0,ifoscillatory)
-
-
-dd1     = cos(pi*(dnu-dmu))
-dd2     = sin(pi*(dnu-dmu))
-
-valp = valp0 * dd1   - valq0 * dd2
-valq = -valq0 *dd1   - valp0 * dd2
-
-if (ifoscillatory .eq. 0) then
-vallogp = vallogp0 + log(   dd1   - exp(logvalq0 - vallogp0) * dd2)
-vallogq = vallogq0 + log( - dd1   - exp(vallogp0 - vallogq0) * dd2)
-else
-
-!
-! Adjust alpha; alpha' needs no adjustment
-!
-alpha    = pi*(dnu-dmu) - alpha0 
-alphader = alphader0
-
-endif
-return
-endif
-
-!
-!  Otherwise, simply call eval0
-!
-
-call  alegendre_eval0(dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq,ifoscillatory)
-
-
-end subroutine
-
-
-
-subroutine alegendre_eval0(dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq, &
-  ifoscillatory)
-implicit double precision (a-h,o-z)
-
-!
-!  Evaluate (1) and (2) as well as the related functions when 0 < t <= pi/2.
-!
-
-!
-!  Determine whether or not we are in the oscillatory regime and fetch
-!  the endpoints of oscillatory and nonoscillatory intervals
-!
 
 dlambda        = dnu+0.5d0
 ifoscillatory  = 1
@@ -339,7 +281,6 @@ call alegendre_taylor(dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq,ifoscil
 return
 endif
 
-
 !
 !  Handle the case of 2 <= dnu < 10
 !
@@ -353,7 +294,7 @@ if (ifsmalldmu .eq. 1) then
 if (t .lt. a) then
 call alegendre_taylor(dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq,ifoscillatory)
 else
-call alegendre_expeval(expdata1,dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq)
+call alegendre_expeval(expdata1,dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq,a,b,c)
 endif
 
 else
@@ -361,7 +302,7 @@ else
 if (t .lt. a) then
 call alegendre_taylor(dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq,ifoscillatory)
 else
-call alegendre_expeval(expdata2,dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq)
+call alegendre_expeval(expdata2,dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq,a,b,c)
 endif
 
 endif
@@ -381,7 +322,7 @@ if (ifsmalldmu .eq. 1) then
 if (t .lt. a) then
 call alegendre_taylor(dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq,ifoscillatory)
 else
-call alegendre_expeval(expdata3,dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq)
+call alegendre_expeval(expdata3,dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq,a,b,c)
 endif
 
 else
@@ -389,7 +330,7 @@ else
 if (t .lt. c) then
 call alegendre_taylor(dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq,ifoscillatory)
 else
-call alegendre_expeval(expdata4,dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq)
+call alegendre_expeval(expdata4,dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq,a,b,c)
 endif
 endif
 
@@ -409,7 +350,7 @@ if (ifsmalldmu .eq. 1) then
 if (t .lt. a) then
 call alegendre_macdonald(dnu,dmu,t,vallogp,vallogq,valp,valq)
 else
-call alegendre_expeval(expdata5,dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq)
+call alegendre_expeval(expdata5,dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq,a,b,c)
 endif
 
 else
@@ -418,7 +359,7 @@ if (t .lt. c) then
 !call alegendre_taylor(dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq,ifoscillatory)
 call alegendre_macdonald(dnu,dmu,t,vallogp,vallogq,valp,valq)
 else
-call alegendre_expeval(expdata6,dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq)
+call alegendre_expeval(expdata6,dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq,a,b,c)
 endif
 endif
 
@@ -437,7 +378,7 @@ if (ifsmalldmu .eq. 1) then
 if (t .lt. a) then
 call alegendre_macdonald(dnu,dmu,t,vallogp,vallogq,valp,valq)
 else
-call alegendre_expeval(expdata7,dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq)
+call alegendre_expeval(expdata7,dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq,a,b,c)
 endif
 
 else
@@ -445,8 +386,77 @@ else
 if (t .lt. c) then
 call alegendre_macdonald(dnu,dmu,t,vallogp,vallogq,valp,valq)
 else
-call alegendre_expeval(expdata8,dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq)
+call alegendre_expeval(expdata8,dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq,a,b,c)
 endif
+endif
+
+return
+
+
+
+end subroutine
+
+
+
+
+subroutine alegendre_eval00(dnu,dmu,t,alphader)
+implicit double precision (a-h,o-z)
+
+!
+!  Evaluate only the derivative of alpha, and only for dnu > 10 and in
+!  the oscillatory regime.
+!  
+!
+
+
+ifsmalldmu = 0
+if (dmu .lt. 1) ifsmalldmu = 1
+
+
+!
+!  Now 10 <= dnu <= 10,000 
+!
+
+if (dnu .le. 10000) then
+
+if (ifsmalldmu .eq. 1) then
+call alegendre_expeval000(expdata3,dnu,dmu,t,alphader)
+else
+call alegendre_expeval000(expdata4,dnu,dmu,t,alphader)
+endif
+
+return
+endif
+
+
+!
+!  Now 10,000 < dnu <= 1,000,000
+!
+
+if (dnu .le. 1000000) then
+
+
+if (ifsmalldmu .eq. 1) then
+call alegendre_expeval000(expdata5,dnu,dmu,t,alphader)
+else
+call alegendre_expeval000(expdata6,dnu,dmu,t,alphader)
+endif
+
+return
+endif
+
+
+
+!
+!  Now 1,000,000 < dnu <= 100,000,000
+!
+
+
+if (ifsmalldmu .eq. 1) then
+
+call alegendre_expeval(expdata7,dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq,a,b,c)
+else
+call alegendre_expeval(expdata8,dnu,dmu,t,alpha,alphader,vallogp,vallogq,valp,valq,a,b,c)
 endif
 
 return
@@ -495,7 +505,7 @@ ifsmalldmu = 0
 if (dmu .lt. 1) ifsmalldmu = 1
 
 call alegendre_evalabc(ifsmalldmu,dnu,dmu,a,b,c)
-call alegendre_eval0(dnu,dmu,a,alpha1,alphader,vallogp,vallogq,valp,valq,ifoscillatory)
+call alegendre_eval(dnu,dmu,a,alpha1,alphader,vallogp,vallogq,valp,valq)
 alpha2  = 2*pi + pi*(dnu-dmu)-alpha1
 
 !
@@ -535,7 +545,7 @@ endif
 
 if (dnu .lt. 10 .OR. dnu .gt. maxdegree) then
 print *,"alegendre_proot: parameters out of bounds"
-print *,"dnu = ",dnu
+print *,"dnu = ",dnu,maxdegree
 print *,"dmu = ",dmu
 print *,"t   = ",dmu
 stop
@@ -607,6 +617,91 @@ t      = pi - t
 endif
 
 end subroutine
+
+
+
+subroutine alegendre_jacobi(dmu,n,j,t,wht)
+implicit double precision (a-h,o-z)
+!
+!  Return the j^th node and corresponding weight of an ceil(n/2)-point quadrature 
+!  rule with nodes
+!
+!     t_1 < t_2 < ... < t_n
+!
+!  and weights
+!
+!     w_1, w_2, ..., w_n
+!
+!  such that
+!
+!        pi                                          n
+!    \int  \sin^{2 dmu + 1}(t) p(\cos(t)) dt =  \sum  sin^{2m+1}(t) p(cos(t_j)) w_j
+!         0                                         i=1
+!
+!  whenever p is an even polynomial of degree less than or equal to 2n-2.
+!  We note that the quadrature nodes all  lie in the interval (0,\pi/2).
+!
+!  These quadratures are images of those described in 
+!
+!    Mark Tygert, "Fast algorithms for spherical harmonic expansions, III"
+!    Journal of Computational Physics, 229 (2010) pp. 6181-6192.
+!
+!  under the change of variables x = cos(t).   They can be used in applying
+!  the spherical harmonic transform.  
+!
+!  Input parameters:
+!    dmu - the order for the quadrature rule
+!    n - the number of points in the quadrature rule
+!    j - the index of the node to return
+!
+!  Output parameters:
+!    t - the required quadrature node
+!    wht - the corresponding weight
+!
+
+
+!
+!  Handle the case in which n is even
+!
+
+if ( (n/2)*2 .eq. n) then
+
+!n0         = 2*(n/2)
+n0         = n
+dnu        = dmu + n0
+xx         = 2*pi + pi/2 + pi*(j-1)
+
+call alegendre_inverse(dnu,dmu,xx,t)
+call alegendre_eval00(dnu,dmu,t,alphader)
+
+
+dersq =  (2*dnu+1.0d0)/pi * alphader  
+wht   = 2*(2*dmu+2*n0+1)/(dersq)
+
+return
+endif
+
+!
+!  Now handle the case of odd n ... when n is odd, pi/2 is one of the roots
+!
+
+n0         = 2*(n/2)+1
+dnu        = dmu + n0
+
+if (j .eq. ceiling(n/2.0d0)) then
+t = pi/2
+call alegendre_eval00(dnu,dmu,t,alphader)
+else
+xx         = 2*pi + pi/2 + pi*(j-1)
+call alegendre_inverse(dnu,dmu,xx,t)
+call alegendre_eval00(dnu,dmu,t,alphader)
+endif
+
+dersq =  (2*dnu+1.0d0)/pi * alphader  
+wht   = 2*(2*dmu+2*n0+1)/(dersq)
+
+end subroutine
+
 
 
 
@@ -760,15 +855,14 @@ dsize    = dsize + expdata5%dmemory + expdata6%dmemory
 !  Uncomment this to allow for degrees between 1,000,000 and 100,000,000
 !
 
-! iw = 202
-! open (iw, FILE = 'alegendre_data.bin3', form = 'UNFORMATTED', status = 'OLD', &
-!   access = 'stream', err = 3000)
-! call alegendre_read_expansion(iw,expdata7)
-! call alegendre_read_expansion(iw,expdata8)
-! close (iw)
-! maxdegree = 1000000
-! dsize    = dsize + expdata7%dmemory + expdata8%dmemory 
-!
+iw = 202
+open (iw, FILE = 'alegendre_data.bin3', form = 'UNFORMATTED', status = 'OLD', &
+  access = 'stream', err = 2000)
+call alegendre_read_expansion(iw,expdata7)
+call alegendre_read_expansion(iw,expdata8)
+close (iw)
+dsize    = dsize + expdata7%dmemory + expdata8%dmemory 
+
 
 ifloaded  = 1
 
@@ -782,11 +876,6 @@ stop
 2000 continue
 
 print *,"alegendre_eval_init: unable to open and/or read alegendre_data.bin2"
-stop
-
-3000 continue
-
-print *,"alegendre_eval_init: unable to open and/or read alegendre_data.bin3"
 stop
 
 end subroutine
@@ -2188,7 +2277,7 @@ end subroutine
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
-subroutine alegendre_expeval(expdata,dnu,dmu,t,aval,apval,bval1,bval2,valp,valq)
+subroutine alegendre_expeval(expdata,dnu,dmu,t,aval,apval,bval1,bval2,valp,valq,a,b,c)
 implicit double precision (a-h,o-z)
 
 double precision, intent(in)       :: dnu,t
@@ -2214,7 +2303,7 @@ endif
 
 
 
-call alegendre_evalabc(ifsmalldmu,dnu,dmu,a,b,c)
+!call alegendre_evalabc(ifsmalldmu,dnu,dmu,a,b,c)
 call compute_dmu0(ifsmalldmu,dnu,dmu,dmu0)
 
 
@@ -2239,8 +2328,6 @@ aval  = aval  * dnu
 apval = apval * dnu
 endif
 
-!aval = aval + pi/2 * (dnu-dmu)
-! aval = aval - pi/2*dmu
 dd   =  sqrt((1+2*dnu)/(pi*apval))
 valp =  cos(aval ) * dd
 valq = -sin(aval ) * dd
@@ -2278,6 +2365,49 @@ endif
 
 end subroutine
 
+
+
+subroutine alegendre_expeval000(expdata,dnu,dmu,t,apval)
+implicit double precision (a-h,o-z)
+
+type(alegendre_expansion_data) :: expdata
+
+k           = expdata%k
+ifsmalldmu  = expdata%ifsmalldmu
+ifover      = expdata%ifover
+
+
+if (ifover .eq. 1) then
+dnu0   = 1/dnu
+else
+dnu0   = dnu
+endif
+
+
+
+call alegendre_evalabc(ifsmalldmu,dnu,dmu,a,b,c)
+call compute_dmu0(ifsmalldmu,dnu,dmu,dmu0)
+
+
+
+u = (t-a)/(b-a)
+call alegendre_findint(expdata%nintsef,expdata%ef,dnu0,intef,e0,f0)
+call alegendre_findint(expdata%nintscd,expdata%cd,dmu0,intcd,c0,d0)
+call alegendre_findint(expdata%nintsab,expdata%ab,u,intab,a0,b0)
+
+
+iptr1  = expdata%iptrsalphap(intab,intcd,intef)
+
+call alegendre_tensor_eval(expdata%ncoefsalphap, &
+  expdata%coefsalphap,iptr1,a0,b0,c0,d0,e0,f0,u,dmu0,dnu0,apval)
+
+
+if (ifover .eq. 1) then
+apval = apval * dnu
+endif
+
+
+end subroutine
 
 subroutine alegendre_expeval_inverse(expdata,dnu,dmu,t,ainv)
 implicit double precision (a-h,o-z)
@@ -2335,6 +2465,8 @@ ainv  = ainv*dnu
 endif
 
 end subroutine
+
+
 
 
 
@@ -2585,19 +2717,19 @@ implicit double precision (a-h,o-z)
 integer             :: int,nints
 double precision    :: ab(2,nints),x,a,b
 
-!
-!  Conduct several iterations of a binary search for the interval.
-!
+integer             :: int0
 
-eps0 = epsilon(0.0d0)
+!eps0 = epsilon(0.0d0)
 
-intl   = 1
-intr   = nints
-do int = intl,intr-1
+! intl   = 1
+! intr   = nints
+
+do int = 1,nints-1
 b = ab(2,int)
 if (x .le. b) exit
 end do
 
+int0 = int
 a = ab(1,int)
 b = ab(2,int)
 
